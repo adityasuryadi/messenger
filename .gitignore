@@ -1,0 +1,8 @@
+/tmp
+.env
+.env.test
+/vendor
+/log
+/config/config.json
+/vegeta
+.air.toml
