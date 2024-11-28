@@ -4,7 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/adityasuryadi/messenger/internal/entity"
+	"github.com/adityasuryadi/messenger/internal/auth/entity"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -24,4 +25,14 @@ func (r *UserRepository) Insert(user *entity.User) {
 		slog.Error("failed to insert user", err)
 	}
 	slog.Info("inserted a single document: ", result.InsertedID)
+}
+
+func (r *UserRepository) FindUserByEmail(email string) (*entity.User, error) {
+	result := new(entity.User)
+	err := r.DB.Collection("user").FindOne(context.TODO(), bson.M{"email": email}).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

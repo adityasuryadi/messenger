@@ -1,10 +1,10 @@
 package usecase
 
 import (
-	"github.com/adityasuryadi/messenger/helper"
-	"github.com/adityasuryadi/messenger/internal/entity"
-	"github.com/adityasuryadi/messenger/internal/model"
-	"github.com/adityasuryadi/messenger/internal/repository"
+	"github.com/adityasuryadi/messenger/internal/auth/entity"
+	"github.com/adityasuryadi/messenger/internal/auth/model"
+	"github.com/adityasuryadi/messenger/internal/auth/repository"
+	"github.com/adityasuryadi/messenger/pkg/security"
 )
 
 func NewAuthUseCase(userRepo *repository.UserRepository) *AuthUseCase {
@@ -21,7 +21,7 @@ func (u *AuthUseCase) Register(request *model.RegisterRequest) {
 	user := &entity.User{
 		FullName: request.Fullname,
 		Email:    request.Email,
-		Password: helper.Encrypt(request.Password),
+		Password: security.Hash(request.Password),
 	}
 
 	u.UserRepository.Insert(user)

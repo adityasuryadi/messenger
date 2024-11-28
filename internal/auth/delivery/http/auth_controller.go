@@ -2,12 +2,16 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/adityasuryadi/messenger/helper"
-	"github.com/adityasuryadi/messenger/internal/model"
-	"github.com/adityasuryadi/messenger/internal/usecase"
+	"github.com/adityasuryadi/messenger/internal/auth/model"
+	"github.com/adityasuryadi/messenger/internal/auth/usecase"
 	"github.com/adityasuryadi/messenger/pkg"
+	"github.com/adityasuryadi/messenger/pkg/utils"
+	"github.com/google/uuid"
 )
 
 type AuthController struct {
@@ -53,8 +57,13 @@ func (c *AuthController) Register(w http.ResponseWriter, r *http.Request) {
 	helper.WriteResponseBody(w, response)
 }
 
-func (c *AuthController) Login() {
-
+func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
+	id := uuid.New()
+	jwtToken, err := utils.GenerateJwtToken(id)
+	if err != nil {
+		slog.Error("failed to generate jwt token", err)
+	}
+	fmt.Println("token ", jwtToken)
 }
 
 func (c *AuthController) RefreshToken() {
