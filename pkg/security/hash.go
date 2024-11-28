@@ -11,3 +11,7 @@ func Hash(input string) string {
 	hashBytes := hasher.Sum(nil)
 	return hex.EncodeToString(hashBytes)
 }
+
+func CompareHash(inputHash string, currentHash string) bool {
+	return currentHash == Hash(inputHash)
+}

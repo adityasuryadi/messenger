@@ -2,16 +2,12 @@ package controller
 
 import (
 	"encoding/json"
-	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/adityasuryadi/messenger/helper"
 	"github.com/adityasuryadi/messenger/internal/auth/model"
 	"github.com/adityasuryadi/messenger/internal/auth/usecase"
 	"github.com/adityasuryadi/messenger/pkg"
-	"github.com/adityasuryadi/messenger/pkg/utils"
-	"github.com/google/uuid"
 )
 
 type AuthController struct {
@@ -58,12 +54,46 @@ func (c *AuthController) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
-	id := uuid.New()
-	jwtToken, err := utils.GenerateJwtToken(id)
+	request := model.LoginRequest{}
+	helper.ReadRequestBody(r, &request)
+
+	err := c.Validation.ValidateRequest(&request)
 	if err != nil {
-		slog.Error("failed to generate jwt token", err)
+		errValidation := c.Validation.ErrorJson(err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+
+		response := &model.ErrorResponse{
+			Status: "BAD_REQUEST",
+			Code:   400,
+			Error:  errValidation,
+		}
+
+		json.NewEncoder(w).Encode(response)
+		return
 	}
-	fmt.Println("token ", jwtToken)
+
+	response, err := c.AuthUsecase.Login(&request)
+
+	if err != nil {
+		w.Header().Add("Content-Type", "application/json")
+		response := &model.ErrorResponse{
+			Status: "BAD_REQUEST",
+			Code:   400,
+			Error:  err.Error(),
+		}
+		helper.WriteResponseBody(w, response)
+		return
+	}
+
+	successResponse := model.SuccessResponse{
+		Status: "OK",
+		Code:   200,
+		Data:   response,
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	helper.WriteResponseBody(w, successResponse)
 }
 
 func (c *AuthController) RefreshToken() {

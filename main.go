@@ -34,10 +34,8 @@ func main() {
 	)
 
 	configs := config.Get()
-	slog.Info("config", configs)
-
 	if err != nil {
-		slog.Error("failed to load config", err)
+		slog.Error("failed to load config", slog.String("error", err.Error()))
 	}
 
 	database, err := config.SetupDB(viper)
