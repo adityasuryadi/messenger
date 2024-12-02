@@ -2,7 +2,9 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/adityasuryadi/messenger/helper"
 	"github.com/adityasuryadi/messenger/internal/auth/model"
@@ -92,12 +94,37 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		Data:   response,
 	}
 
+	// set refresh token to cookie
+	cookie := &http.Cookie{}
+	cookie.Name = "refresh_token"
+	cookie.HttpOnly = true
+	cookie.Expires = time.Now().Add(time.Hour * 24 * 30)
+	cookie.Value = response.RefreshToken
+	http.SetCookie(w, cookie)
+
 	w.Header().Add("Content-Type", "application/json")
+
 	helper.WriteResponseBody(w, successResponse)
 }
 
-func (c *AuthController) RefreshToken() {
+func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	refreshToken := r.CookiesNamed("refresh_token")
+	if len(refreshToken) == 0 {
+		err := errors.New("refresh token not found")
+		helper.WriteUnauthorizedResponse(w, err)
+		return
+	}
 
+	refreshTokenValue := refreshToken[0].Value
+
+	token, err := c.AuthUsecase.RefreshToken(refreshTokenValue)
+	if err != nil {
+		helper.WriteUnauthorizedResponse(w, err)
+		return
+	}
+
+	helper.WriteOkResponse(w, token)
+	return
 }
 
 func (c *AuthController) Logout() {

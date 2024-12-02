@@ -40,3 +40,30 @@ func GenerateJwtToken(id uuid.UUID) (string, error) {
 
 	return ss, nil
 }
+
+func GenerateRefreshToken(id uuid.UUID) (string, error) {
+	jwtSecret := config.Get().JWT.SecretJWT
+	// ttl := config.Get().JWT.Ttl
+	if jwtSecret == "" {
+		slog.Error("jwt secret is empty")
+	}
+	secretKey := []byte(jwtSecret)
+
+	claims := JwtClaims{
+		ID: id,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 30)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        id.String(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, err := token.SignedString(secretKey)
+
+	if err != nil {
+		return "", err
+	}
+
+	return ss, nil
+}

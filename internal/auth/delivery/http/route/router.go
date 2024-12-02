@@ -11,5 +11,6 @@ func NewRouter(AuthController *controller.AuthController) *http.ServeMux {
 	prefix := "api"
 	mux.HandleFunc("POST /"+prefix+"/register", AuthController.Register)
 	mux.HandleFunc("POST /"+prefix+"/login", AuthController.Login)
+	mux.HandleFunc("POST /"+prefix+"/refresh-token", AuthController.RefreshToken)
 	return mux
 }

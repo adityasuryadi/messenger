@@ -45,8 +45,10 @@ func main() {
 
 	validation := pkg.NewValidation(database)
 
+	refreshTokenRepository := repository.NewRefreshTokenRepository(database)
+
 	userRepository := repository.NewUserRepository(database)
-	authUsecase := usecase.NewAuthUseCase(userRepository)
+	authUsecase := usecase.NewAuthUseCase(userRepository, refreshTokenRepository)
 	authController := controller.NewAuthController(validation, authUsecase)
 
 	mux := route.NewRouter(authController)

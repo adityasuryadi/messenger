@@ -2,28 +2,34 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/adityasuryadi/messenger/internal/auth/entity"
 	"github.com/adityasuryadi/messenger/internal/auth/model"
 	"github.com/adityasuryadi/messenger/internal/auth/repository"
 	"github.com/adityasuryadi/messenger/pkg/security"
 	"github.com/adityasuryadi/messenger/pkg/utils"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-func NewAuthUseCase(userRepo *repository.UserRepository) *AuthUseCase {
+func NewAuthUseCase(userRepo *repository.UserRepository, refreshTokenRepo *repository.RefreshTokenRepository) *AuthUseCase {
 	return &AuthUseCase{
-		UserRepository: userRepo,
+		UserRepository:         userRepo,
+		RefreshTokenRepository: refreshTokenRepo,
 	}
 }
 
 type AuthUseCase struct {
-	UserRepository *repository.UserRepository
+	UserRepository         *repository.UserRepository
+	RefreshTokenRepository *repository.RefreshTokenRepository
 }
 
 func (u *AuthUseCase) Register(request *model.RegisterRequest) {
 	user := &entity.User{
+		Id:       uuid.New(),
 		FullName: request.Fullname,
 		Email:    request.Email,
 		Password: security.Hash(request.Password),
@@ -58,10 +64,53 @@ func (u *AuthUseCase) Login(request *model.LoginRequest) (*model.LoginResponse, 
 		return nil, err
 	}
 
+	refreshToken, err := utils.GenerateRefreshToken(user.Id)
+	if err != nil {
+		slog.Error("failed to generate refresh token", slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	fmt.Println("user id", user)
+
+	// insert refresh token to collection
+	refreshTokenEntity := &entity.RefreshToken{
+		UserId:       user.Id,
+		RefreshToken: refreshToken,
+		Email:        user.Email,
+		ExpiredAt:    time.Now().Add(time.Hour * 24 * 30),
+	}
+
+	err = u.RefreshTokenRepository.Insert(refreshTokenEntity)
+	if err != nil {
+		slog.Error("failed to insert refresh token", slog.String("error", err.Error()))
+		return nil, err
+	}
+
 	response := &model.LoginResponse{
 		AccessToken:  jwtToken,
-		RefreshToken: "",
+		RefreshToken: refreshToken,
 	}
 
 	return response, nil
+}
+
+func (u *AuthUseCase) RefreshToken(refreshToken string) (string, error) {
+	userRfToken, err := u.RefreshTokenRepository.FindUserByToken(refreshToken)
+	if err != nil {
+		return "", err
+	}
+
+	// check token expired or not
+	if time.Now().Unix() > userRfToken.ExpiredAt.Unix() {
+		return "", errors.New("token expired")
+	}
+
+	// generate new jwt token
+	jwtToken, err := utils.GenerateJwtToken(userRfToken.UserId)
+	if err != nil {
+		slog.Error("failed to generate jwt token", slog.String("error", err.Error()))
+		return "", err
+	}
+
+	return jwtToken, nil
 }
