@@ -1,0 +1,187 @@
+package usecase
+
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+
+	"github.com/adityasuryadi/messenger/internal/messaging/entity"
+	"github.com/adityasuryadi/messenger/internal/messaging/model"
+	messageModel "github.com/adityasuryadi/messenger/internal/messaging/model"
+	"github.com/adityasuryadi/messenger/internal/messaging/repository"
+	"github.com/gorilla/websocket"
+)
+
+type MessageUsecase struct {
+	MessagingRepository *repository.MessageRepository
+}
+
+type WebSocketConnection struct {
+	*websocket.Conn
+}
+
+var connections = make([]*WebSocketConnection, 0)
+var currentConn *WebSocketConnection
+
+// var clients = make(map[*WebSocketConnection]bool)
+var broadcast = make(chan *model.MessageRequest)
+var register = make(chan *websocket.Conn)
+var unregister = make(chan *websocket.Conn)
+
+func (u *MessageUsecase) BroadcastMessage() {
+	for {
+		msg := <-broadcast
+		currUser := <-register
+		fmt.Println("broadcast message", msg.Message)
+		for _, eachConn := range connections {
+			// msg := <-broadcast
+			if eachConn.Conn != currUser {
+				eachConn.WriteJSON(msg)
+			}
+
+			// response := &model.MessageResponse{
+			// 	From:    currentConn.Username,
+			// 	Message: message,
+			// }
+
+			// fmt.Println(response)
+		}
+	}
+}
+
+func removeConnection(currentConn *WebSocketConnection) {
+	for i, eachConn := range connections {
+		if eachConn == currentConn {
+			connections = append(connections[:i], connections[i+1:]...)
+			break
+		}
+	}
+}
+
+func closeConnection(currentConn *WebSocketConnection) {
+	removeConnection(currentConn)
+	currentConn.Close()
+	fmt.Println("total koneksi", len(connections))
+}
+
+func handleIO(websocketCon *websocket.Conn, handler func(req *messageModel.MessageRequest) error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("failed to handle io", slog.String("error", r.(error).Error()))
+		}
+	}()
+
+	currentConn := &WebSocketConnection{
+		Conn: websocketCon,
+	}
+
+	// assign current ke connection to avaiable connections (online)
+	connections = append(connections, currentConn)
+
+	for {
+		_, p, err := websocketCon.ReadMessage()
+
+		// check if connection closed
+		// if connection closed and read json from body will return websocket: close 1005 (no status)
+		// so check if err containt websocket: close remove connections from active connection struct
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				fmt.Printf("koneksi client terputus: %v", err)
+				closeConnection(currentConn)
+				break
+			}
+		}
+
+		request := new(messageModel.MessageRequest)
+		if err := json.Unmarshal(p, &request); err != nil {
+			fmt.Println("message", string(p))
+			slog.Error("failed to read json", slog.String("error", err.Error()))
+			break
+		}
+
+		fmt.Println("message di terima", request.Message)
+		broadcast <- request
+
+		// handler(request)
+	}
+}
+
+func NewMessageUsecase(messagingRepository *repository.MessageRepository) *MessageUsecase {
+	return &MessageUsecase{
+		MessagingRepository: messagingRepository,
+	}
+}
+func (u *MessageUsecase) UpgradeConn(w http.ResponseWriter, r *http.Request) {
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:    1024,
+		WriteBufferSize:   1024,
+		EnableCompression: true,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		slog.Error("failed to upgrade connection", slog.String("error", err.Error()))
+		// return nil, err
+	}
+
+	currentConn = &WebSocketConnection{Conn: conn}
+	connections = append(connections, currentConn)
+	request := new(messageModel.MessageRequest)
+	err = conn.ReadJSON(&request)
+	if err != nil {
+		slog.Error("failed to read json", slog.String("error", err.Error()))
+	}
+	register <- conn
+	for {
+		_, p, err := conn.ReadMessage()
+
+		// check if connection closed
+		// if connection closed and read json from body will return websocket: close 1005 (no status)
+		// so check if err containt websocket: close remove connections from active connection struct
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				fmt.Printf("error: %v", err)
+				closeConnection(currentConn)
+				break
+			}
+		}
+
+		if err := json.Unmarshal(p, &request); err != nil {
+			slog.Error("failed to read json", slog.String("error", err.Error()))
+			break
+		}
+		broadcast <- request
+		// BroadcastMessage(conn)
+		// fmt.Println("message di terima", request.Message)
+
+		// for range connections {
+		// fmt.Println("total koneksi", len(connections))
+		// }
+		// go func() {
+		// }()
+		// handler(request)
+	}
+
+	// ch <- "test"
+
+	// message := <-ch
+	// fmt.Println("test", message)
+
+	// return conn, nil
+}
+
+func (u *MessageUsecase) Insert(request *messageModel.MessageRequest) error {
+	messageEntity := &entity.Message{
+		From:    request.From,
+		Message: request.Message,
+	}
+	err := u.MessagingRepository.Insert(messageEntity)
+	if err != nil {
+		slog.Error("failed to insert message", slog.String("error", err.Error()))
+		return err
+	}
+	return nil
+}

@@ -3,6 +3,6 @@
 .env.test
 /vendor
 /log
-/config/config.json
+/config.yaml
 /vegeta
 .air.toml

@@ -13,11 +13,11 @@ import (
 )
 
 type AuthController struct {
-	AuthUsecase *usecase.AuthUseCase
+	AuthUsecase usecase.AuthUseCase
 	Validation  *pkg.Validation
 }
 
-func NewAuthController(validation *pkg.Validation, authUsecase *usecase.AuthUseCase) *AuthController {
+func NewAuthController(validation *pkg.Validation, authUsecase usecase.AuthUseCase) *AuthController {
 	return &AuthController{
 		AuthUsecase: authUsecase,
 		Validation:  validation,
@@ -108,6 +108,11 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
+
+	type RefreshTokenResponse struct {
+		AccessToken string `json:"access_token"`
+	}
+
 	refreshToken := r.CookiesNamed("refresh_token")
 	if len(refreshToken) == 0 {
 		err := errors.New("refresh token not found")
@@ -116,15 +121,16 @@ func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	refreshTokenValue := refreshToken[0].Value
-
 	token, err := c.AuthUsecase.RefreshToken(refreshTokenValue)
 	if err != nil {
 		helper.WriteUnauthorizedResponse(w, err)
 		return
 	}
+	response := &RefreshTokenResponse{
+		AccessToken: token,
+	}
 
-	helper.WriteOkResponse(w, token)
-	return
+	helper.WriteOkResponse(w, response)
 }
 
 func (c *AuthController) Logout() {
