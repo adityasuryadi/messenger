@@ -11,4 +11,5 @@ func SetupRouter(mux *http.ServeMux, AuthController *controller.AuthController) 
 	mux.HandleFunc("POST /"+prefix+"/register", AuthController.Register)
 	mux.HandleFunc("POST /"+prefix+"/login", AuthController.Login)
 	mux.HandleFunc("POST /"+prefix+"/refresh-token", AuthController.RefreshToken)
+	mux.HandleFunc("POST /"+prefix+"/logout", AuthController.Logout)
 }

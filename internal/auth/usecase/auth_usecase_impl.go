@@ -114,3 +114,18 @@ func (u *AuthUseCaseImpl) RefreshToken(refreshToken string) (string, error) {
 
 	return jwtToken, nil
 }
+
+func (u *AuthUseCaseImpl) Logout(refreshToken string) error {
+	// get token if does not exist return err
+	rfToken, err := u.RefreshTokenRepository.FindUserByToken(refreshToken)
+	if rfToken == nil {
+		return err
+	}
+
+	err = u.RefreshTokenRepository.Delete(refreshToken)
+	if err != nil {
+		slog.Error("failed to delete refresh token", slog.String("error", err.Error()))
+		return err
+	}
+	return nil
+}

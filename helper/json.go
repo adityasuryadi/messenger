@@ -68,3 +68,31 @@ func WriteOkResponse(writer http.ResponseWriter, data interface{}) {
 		slog.Error("failed to write response body", slog.String("error", err.Error()))
 	}
 }
+
+func WriteInternalServerErrorResponse(writer http.ResponseWriter, errors error) {
+	response := &model.ErrorResponse{
+		Status: "INTERNAL_SERVER_ERROR",
+		Code:   500,
+		Error:  errors.Error(),
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusInternalServerError)
+	err := json.NewEncoder(writer).Encode(response)
+	if err != nil {
+		slog.Error("failed to write response body", slog.String("error", err.Error()))
+	}
+}
+
+func WriteNotFoundResponse(writer http.ResponseWriter, errors error) {
+	response := &model.ErrorResponse{
+		Status: "NOT_FOUND",
+		Code:   404,
+		Error:  errors.Error(),
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusInternalServerError)
+	err := json.NewEncoder(writer).Encode(response)
+	if err != nil {
+		slog.Error("failed to write response body", slog.String("error", err.Error()))
+	}
+}

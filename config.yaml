@@ -1,5 +1,5 @@
 service:
-  port: ":9876"
+  port: ":8090"
 jwt:
   secretJWT: "rahasia"
   ttl: 30 #in minutes

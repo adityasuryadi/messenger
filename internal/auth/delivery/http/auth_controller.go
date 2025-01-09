@@ -10,6 +10,7 @@ import (
 	"github.com/adityasuryadi/messenger/internal/auth/model"
 	"github.com/adityasuryadi/messenger/internal/auth/usecase"
 	"github.com/adityasuryadi/messenger/pkg"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type AuthController struct {
@@ -115,7 +116,7 @@ func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	refreshToken := r.CookiesNamed("refresh_token")
 	if len(refreshToken) == 0 {
-		err := errors.New("refresh token not found")
+		err := errors.New("token needed or token")
 		helper.WriteUnauthorizedResponse(w, err)
 		return
 	}
@@ -133,6 +134,26 @@ func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	helper.WriteOkResponse(w, response)
 }
 
-func (c *AuthController) Logout() {
+func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
+	refreshToken := r.CookiesNamed("refresh_token")
+	if len(refreshToken) == 0 {
+		err := errors.New("token needed or token")
+		helper.WriteUnauthorizedResponse(w, err)
+		return
+	}
 
+	refreshTokenValue := refreshToken[0].Value
+	err := c.AuthUsecase.Logout(refreshTokenValue)
+
+	if err != nil && errors.Is(err, mongo.ErrNoDocuments) {
+		helper.WriteNotFoundResponse(w, err)
+		return
+	}
+
+	if err != nil {
+		helper.WriteUnauthorizedResponse(w, err)
+		return
+	}
+
+	helper.WriteOkResponse(w, nil)
 }

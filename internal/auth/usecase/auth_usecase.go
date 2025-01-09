@@ -6,4 +6,5 @@ type AuthUseCase interface {
 	Register(request *model.RegisterRequest)
 	Login(request *model.LoginRequest) (*model.LoginResponse, error)
 	RefreshToken(refreshToken string) (string, error)
+	Logout(refreshToken string) error
 }

@@ -34,3 +34,11 @@ func (r *RefreshTokenRepository) FindUserByToken(token string) (*entity.RefreshT
 	}
 	return refreshToken, nil
 }
+
+func (r *RefreshTokenRepository) Delete(token string) error {
+	_, err := r.DB.Collection("refresh_tokens").DeleteOne(context.TODO(), bson.M{"refresh_token": token})
+	if err != nil {
+		return err
+	}
+	return nil
+}
